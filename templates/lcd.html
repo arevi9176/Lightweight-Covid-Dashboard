@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<title>Lightweight Covid Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="shortcut icon" href="{{url_for('static', filename='favicon.ico')}}">
+<link rel="icon" sizes="192x192" href="{{url_for('static', filename='virus_rd_192x192.png')}}">
+<link rel="apple-touch-icon" sizes="144x144" href="{{url_for('static', filename='virus_144x144.png')}}">
+<link rel="apple-touch-startup-image" href="{{url_for('static', filename='virus_144x144.png')}}">
+<link rel="stylesheet" href="https://www.w3schools.com/lib/w3.css">
+
+<script>
+
+function toggleVisibility(id) {
+    var x = document.getElementById(id);
+    if (x.className.indexOf("w3-show") == -1) {
+        x.className += " w3-show";
+    } else { 
+        x.className = x.className.replace(" w3-show", "");
+    }
+}
+
+function setFilterForDays(days) {
+    new_search = "?days=" + days + "&cases={{header[2]}}"
+    // console.log(window.location)
+    // console.log(new_search)
+    window.location = window.location.pathname + new_search
+}
+
+function setFilterForCases(cases) {
+    new_search = "?days={{header[1]}}&cases=" + cases
+    // console.log(window.location)
+    // console.log(new_search)
+    window.location = window.location.pathname + new_search    
+}
+
+function setFilterForCountry(country) {
+    new_search = "?days={{header[1]}}&cases={{header[2]}}&country=" + country
+    window.location = window.location.pathname + new_search    
+}
+
+function gotoConfirmed(country) {
+    new_search = "?days={{header[1]}}&cases={{header[2]}}&country=" + country
+    pathname = "/confirmed/"
+    window.location = window.location.origin + pathname + new_search    
+}
+
+</script>
+
+<body>
+
+    <div id="about" class="w3-modal">
+        <div class="w3-modal-content">
+          <header class="w3-container w3-blue-grey"> 
+            <span onclick="document.getElementById('about').style.display='none'" 
+            class="w3-button w3-display-topright">&times;</span>
+            <p class="w3-medium">Welcome!</p>
+          </header>
+          <div class="w3-container">
+            <p>You just found the lightweight covid dashboard.</p>
+            <p>There are many good and sophisticated dashboards out there, nevertheless I missed the possibility to compare the current situation in different countries at a glance, especially on mobile devices.</p>
+            <p>The underlying data comes from the Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) and is available on <a href="https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data">GitHub</a> - data is updated once a day.</p>
+            <p>The data on the number of residents of the respective countries comes from the World Bank (last update from 2018) and is available <a href="https://data.worldbank.org/indicator/SP.POP.TOTL">here</a>. The data on the number of residents per case is only a rough indication and will vary considerably locally!</p>
+            <p>At the time of writing (March 2020) many countries are in the state of exponential growth or about to enter this phase.
+               Only a few countries, e.g. China and South Korea, seem to have almost halted the further spread of the virus.
+               This is clearly visible if you switch to the 'Daily New Cases' view.
+               Hopefully, other countries will follow in the near future.</p>
+             <p>Please take this seriously and follow the instructions from the authorities on how to deal with this situation!</p>
+             <p>This application is also available on <a href="https://github.com/arevi9167/lcd">GitHub</a>.</p>
+          </div>
+          <footer class="w3-container w3-blue-grey">
+            <p>Stay well, Achim</p>
+          </footer>
+        </div>
+      </div>
+
+    <div id="menu1" class="w3-bar w3-dark-gray w3-medium">
+        <a href="#" class="w3-bar-item w3-button" onclick="document.getElementById('about').style.display='block'">About</a>
+        <a href="/confirmed/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button w3-hide-small">Total Confirmed Cases</a>
+        <a href="/confirmed_dif/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button w3-hide-small">Daily New Cases</a>
+        <a href="/deaths/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button w3-hide-small">Total Deaths</a>
+        <a href="/deaths_dif/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button w3-hide-small">Daily New Deaths</a>
+        <a href="/av_growth_rate/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button w3-hide-small">Average growth rate in the last seven days</a>
+        <div class="w3-dropdown-hover w3-hide-small">
+            <button class="w3-button">Apply Filter [days]</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays( 7)">... show last 7 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(14)">... show last 14 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(28)">... show last 28 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(56)">... show last 56 days</a>
+            </div>
+        </div>
+        <div class="w3-dropdown-hover w3-hide-small">
+            <button class="w3-button">Apply Filter [min. cases]</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases(  500)">... show only countries with at least 500 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 1000)">... show only countries with at least 1000 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 2000)">... show only countries with at least 2000 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 5000)">... show only countries with at least 5000 cases</a>              
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases(10000)">... show only countries with at least 10000 cases</a>
+            </div>
+        </div>        
+        <a href="javascript:void(0)" class="w3-bar-item w3-button w3-gray w3-right w3-hide-large w3-hide-medium" onclick="toggleVisibility('menu2')">☰</a>
+      </div>
+      
+      <div id="menu2" class="w3-bar-block w3-border w3-dark-gray w3-hide w3-hide-large w3-hide-medium w3-medium">
+        <a href="/confirmed/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button">Total Confirmed Cases</a>
+        <a href="/confirmed_dif/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button">Daily New Cases</a>
+        <a href="/deaths/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button">Total Deaths</a>
+        <a href="/deaths_dif/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button">Daily New Deaths</a>
+        <a href="/av_growth_rate/?days={{header[1]}}&cases={{header[2]}}" class="w3-bar-item w3-button">Average growth rate in the last seven days</a>        
+        <div class="w3-dropdown-hover">
+            <button class="w3-button">Apply Filter [days]</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays( 7)">... show last 7 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(14)">... show last 14 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(28)">... show last 28 days</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForDays(56)">... show last 56 days</a>
+            </div>
+        </div>
+        <div class="w3-dropdown-hover">
+            <button class="w3-button">Apply Filter [min. cases]</button>
+            <div class="w3-dropdown-content w3-bar-block w3-card-4">
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases(  500)">... show only countries with at least 500 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 1000)">... show only countries with at least 1000 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 2000)">... show only countries with at least 2000 cases</a>
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases( 5000)">... show only countries with at least 5000 cases</a>              
+              <a href="#" class="w3-bar-item w3-button" onclick="setFilterForCases(10000)">... show only countries with at least 10000 cases</a>                            
+            </div>
+        </div>
+    </div>
+
+    <div class="w3-container">
+
+        {% if header[4] == '1' %}
+
+            <div class="w3-panel w3-border w3-light-grey w3-round-large">
+                <div style="height:8px"></div>
+                {{header[0]}}
+                <p class="w3-small">Filter settings: Show the last {{header[1]}} days for countries with at least {{header[2]}} {{header[3]}}{% if header[5] == '' %}.{% else %}, starting with {{header[5]}}.{% endif %}
+                <br>Click on a country's name to put this country on top of the list.</p>
+            </div>
+
+            {% for row in range(absval|length) %}
+                <div class="w3-panel w3-border w3-light-gray w3-round-large w3-small">
+                    <div style="height:5px"></div>
+                    <b><a href="#" style="text-decoration: none;" onclick="setFilterForCountry('{{absval[row][0]}}')">{{absval[row][0]}}</a></b>{{absval[row][1]}}<br>
+                    <div style="height:5px"></div>
+                    {% for col in range(2, absval[row]|length) %}
+                        <div class="w3-round w3-gray w3-tiny" style="width:{{relval[row][col-1]}}%">{{absval[row][col]}}</div>
+                        <div style="height:3px"></div>
+                    {% endfor %}
+                    <div style="height:5px"></div>
+                </div>
+            {% endfor %}
+
+        {% else %}
+
+            <div class="w3-panel w3-border w3-light-grey w3-round-large">
+              <div style="height:8px"></div>
+              Average growth rate of confirmed cases in the last seven days.
+              <p class="w3-small">Filter settings: Show countries with at least {{header[2]}} confirmed cases.
+              <br>Click on a country's name to switch to the confirmed cases view of that country</p>
+            </div>
+
+            {% for row in range(absval|length) %}
+            <div class="w3-panel w3-border w3-light-gray w3-round-large w3-small">
+                <div style="height:5px"></div>
+                <b><a href="#" style="text-decoration: none;" onclick="gotoConfirmed('{{absval[row][0]}}')">{{absval[row][0]}}</a></b>
+                <br>At the current growth rate, the number of cases doubles every <b>{{absval[row][2]}}</b> days.
+                <div class="w3-round w3-gray w3-small" style="width:{{relval[row][1]}}%">{{absval[row][1]}}%</div>
+                <div style="height:8px"></div>
+            </div>
+            {% endfor %}
+
+        {% endif %}
+
+    </div>
+    
+    <footer class="w3-container w3-gray w3-text-light-gray w3-small">
+        <table class="w3-table">
+            <tr>
+              <td>... take care and stay well!</td>
+              <td class="w3-right-align">{{header[6]}}</td>
+            </tr>
+          </table>
+    </footer>
+     
+</body>
+</html>

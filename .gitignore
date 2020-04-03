@@ -1,0 +1,4 @@
+_archiv
+.venv
+*.csv
+__pycache__
