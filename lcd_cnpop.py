@@ -4,6 +4,16 @@
 # License : CC BY-4.0
 #
 
+def get_country_population(country):
+    '''
+    Returns country population in mn
+    '''
+    try:
+        pop = country_population[country][1]
+    except KeyError:
+        pop = 0
+    return round(pop / 1000000, 1)
+
 country_population = {
 "Afghanistan": ["AFG", 37172386],
 "Albania": ["ALB", 2866376],
