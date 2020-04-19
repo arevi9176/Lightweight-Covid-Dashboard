@@ -1,4 +1,5 @@
 _archiv
+_git_excluded
 .venv
 *.csv
 __pycache__

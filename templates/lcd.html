@@ -131,7 +131,7 @@ function gotoConfirmed(country) {
 
     <div class="w3-container">
 
-        {% if context[0] in ('confirmed', 'confirmed_dif', 'deaths', 'deaths_dif') %}
+        {% if context[0] in ('confirmed', 'confirmed_dif', 'deaths', 'deaths_dif', 'recovered', 'recovered_dif') %}
 
             <div class="w3-panel w3-border w3-light-grey w3-round-large">
                 <div style="height:8px"></div>
@@ -146,7 +146,7 @@ function gotoConfirmed(country) {
                     <b><a href="#" style="text-decoration: none;" onclick="setFilterForCountry('{{absval[row][0]}}')">{{absval[row][0]}}</a>:</b>
                     {% if absval[row][1] == 0.0 %}n/a{% else %}{{absval[row][1]}} mio residents{% if context[0] == 'confirmed' %}; {{absval[row][2]}} residents per case{% endif %}{% endif %}<br>
                     <div style="height:5px"></div>
-                    {% for col in range(3, absval[row]|length) %}
+                    {% for col in range(4, absval[row]|length) %}
                         <div class="w3-round w3-gray w3-tiny" style="width:{{relval[row][col]}}%">{{absval[row][col]}}</div>
                         <div style="height:3px"></div>
                     {% endfor %}
@@ -167,8 +167,10 @@ function gotoConfirmed(country) {
             <div class="w3-panel w3-border w3-light-gray w3-round-large w3-small">
                 <div style="height:5px"></div>
                 <b><a href="#" style="text-decoration: none;" onclick="gotoConfirmed('{{absval[row][0]}}')">{{absval[row][0]}}</a></b>
-                <br>At the current growth rate, the number of cases doubles every <b>{{absval[row][4]}}</b> days.
-                <div class="w3-round w3-gray w3-small" style="width:{{relval[row][3]}}%">{{absval[row][3]}}%</div>
+                <br>At the current growth rate, the number of cases doubles every <b>{{absval[row][5]}}</b> days.
+                <br>Trend last seven days compared to last seven days before: <b>{{absval[row][3]}}%</b>
+                {% set prz = absval[row][3]|int %} {% set prz = 2*prz/5+20 %}
+                <div class="w3-round w3-small" style="width:{{relval[row][4]}}%; background-color: hsl(20, {{prz}}%, 50%)">{{absval[row][4]}}%</div>
                 <div style="height:8px"></div>
             </div>
             {% endfor %}
