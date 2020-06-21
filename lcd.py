@@ -7,14 +7,14 @@
 # 15.04.20 (v0.3.0) - totally refactored and some bug fixes
 # 19.04.20 (v0.4.0) - added trend in view 'Average growth rate in the last seven days'
 #
-__version__ = "v0.4.0"
+__version__ = "v0.5.0"
 
 import pandas
 import urllib.request
 
 from flask import Flask, render_template, request
 from time import time as time
-from lcd_cnpop import get_country_population
+from lcd_country_data import get_country_population, get_country_continent
 from math import log10, isinf, isnan
 
 CONFIRMED_GLOBAL_URL = "https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
@@ -41,6 +41,26 @@ class CovidData:
             population.append(get_country_population(country))
         df.insert(0, 'Population', population)
         return df
+
+    def _insert_continents_column(self, df):
+        '''Insert continent column at pos 0 in dataframe.'''
+        countries = list(df["Country/Region"])
+        continents = [get_country_continent(country) for country in countries]
+        df.insert(0, 'Continent', continents)
+        return df
+
+    def _insert_continent_rows(self, df):
+        '''Compute values for continents based on countries an insert as rows'''
+        df_tmp = df.copy()
+        df_tmp = self._insert_continents_column(df_tmp)
+        date_columns = list(df_tmp.columns)[2:]
+        col_dict = {col:'sum' for col in date_columns}
+        df_tmp = df_tmp.groupby("Continent").agg(col_dict)
+        df_tmp.loc['[World]'] = df_tmp.sum()    # insert 'World' row
+        df_tmp.index.name = 'Country/Region'
+        df_tmp = df_tmp.reset_index()
+        df_result = df.append(df_tmp)
+        return df_result.sort_values(df_result.columns[-1], ascending = False)
 
     def _insert_residents_per_case_column(self, df):
         '''
@@ -116,7 +136,9 @@ class CovidData:
     def _compute_abs_dataframe(self):
         df_abs = pandas.read_csv(self.filepath)
         df_abs = df_abs.drop(["Province/State", "Lat", "Long"], axis=1)
+        df_abs = self._insert_continent_rows(df_abs)
         df_abs = self._condense_and_sort_dataframe(df_abs)
+       #df_abs.to_csv('abs.csv', encoding='utf-8')
         return df_abs
 
     def _compute_dif_dataframe(self):
@@ -150,12 +172,18 @@ class CovidData:
         df_agr = df_agr.sort_values(df_agr.columns[-1], ascending = False)      # sort by 'Mean Values'
         return df_agr
 
+    def is_dirty(self, secs):
+        '''
+        Returns True if last update exceeds specified amount of secs
+        '''
+        return time() - self.last_update_time > secs
+
     def _check_for_update(self):
         '''
         Return cached dataframes if last update does not exceed specified amount of secs,
         else download data from Github and parse into dataframes.
         '''        
-        if time() - self.last_update_time > 4 * 3600:
+        if self.is_dirty(4 * 3600):
             urllib.request.urlretrieve(self.url, self.filepath)
             self.df_abs = self._compute_abs_dataframe()
             self.df_dif = self._compute_dif_dataframe()
@@ -185,7 +213,8 @@ class CovidData:
         try:
             row_index = df.index.get_loc(country)
         except KeyError:
-            print(country, 'not found in row index')
+            if country != "":
+                print(country, 'not found in row index')
         else:
             df = df.iloc[row_index:]
         return df
