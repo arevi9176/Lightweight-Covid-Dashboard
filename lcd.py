@@ -6,14 +6,16 @@
 # 03.04.20 (v0.2.1) - changed 'Average percentage increase' to 'Average growth rate'
 # 15.04.20 (v0.3.0) - totally refactored and some bug fixes
 # 19.04.20 (v0.4.0) - added trend in view 'Average growth rate in the last seven days'
+# 21.06.20 (v0.5.0) - added continents based on country values; adjusted threshold values (days, min cases)
+# 02.07.20 (v0.6.0) - new: 'force' url param to force data reload
 #
-__version__ = "v0.5.0"
+__version__ = "v0.6.0"
 
 import pandas
 import urllib.request
 
 from flask import Flask, render_template, request
-from time import time as time
+from time import time, localtime, strftime
 from lcd_country_data import get_country_population, get_country_continent
 from math import log10, isinf, isnan
 
@@ -178,12 +180,12 @@ class CovidData:
         '''
         return time() - self.last_update_time > secs
 
-    def _check_for_update(self):
+    def _check_for_update(self, force_reload=False):
         '''
-        Return cached dataframes if last update does not exceed specified amount of secs,
-        else download data from Github and parse into dataframes.
+        Download data from Github and parse into dataframes if last update does exceed
+        specified amount of secs or force_reload is true.
         '''        
-        if self.is_dirty(4 * 3600):
+        if self.is_dirty(4 * 3600) or force_reload:
             urllib.request.urlretrieve(self.url, self.filepath)
             self.df_abs = self._compute_abs_dataframe()
             self.df_dif = self._compute_dif_dataframe()
@@ -197,6 +199,7 @@ class CovidData:
             self.df_abs = self._insert_trend_column(self.df_abs, 6)
             self.df_dif = self._insert_trend_column(self.df_dif, 6)
             self.last_update_time = time()
+            print("data reloaded...")
 
     def _prune_dataframe(self, df, cases, days):
         '''
@@ -234,8 +237,8 @@ class CovidData:
         df_agr['double_rates'] = double_rates
         return df_agr
 
-    def compute_abs_values(self, days, cases, country=""):
-        self._check_for_update()
+    def compute_abs_values(self, days, cases, country="", force_reload=False):
+        self._check_for_update(force_reload)
         df_abs_tmp = self._prune_dataframe(self.df_abs, cases, days)
         df_abs_tmp = self._shrink_dataframe(df_abs_tmp, country)
         df_rel_tmp = self._compute_rel_dataframe(df_abs_tmp)
@@ -245,8 +248,8 @@ class CovidData:
         dat_end = df_abs_tmp.columns[-1]
         return abs_values, rel_values, dat_start, dat_end
 
-    def compute_dif_values(self, days, cases, country=""):
-        self._check_for_update()
+    def compute_dif_values(self, days, cases, country="", force_reload=False):
+        self._check_for_update(force_reload)
         df_abs_tmp = self._prune_dataframe(self.df_abs, cases, days)                    # Create corresponding df_abs for <cases>.
         df_dif_tmp = self._drop_rows_based_on_unique_indicis(df_abs_tmp, self.df_dif)   # Drop countries which are not in corresponding df_abs.
         df_dif_tmp = self._prune_dataframe(df_dif_tmp, 0, days)                         # Only look at last <days>. Leave cases as is.
@@ -258,8 +261,8 @@ class CovidData:
         dat_end = df_abs_tmp.columns[-1]
         return dif_values, rel_values, dat_start, dat_end
 
-    def compute_agr_values(self, cases):
-        self._check_for_update()
+    def compute_agr_values(self, cases, force_reload=False):
+        self._check_for_update(force_reload)
         df_abs_tmp = self._prune_dataframe(self.df_abs, cases, 8)
         df_agr_tmp = self._compute_agr_dataframe(df_abs_tmp)
         df_rel_tmp = self._compute_rel_dataframe(df_agr_tmp)
@@ -279,70 +282,77 @@ app = Flask(__name__)
 @app.route("/confirmed/")
 def confirmed():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=2000, type=int)
-    country = request.args.get('country', default="", type=str)    
-    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_abs_values(days, cases, country)
+    cases = request.args.get('cases', default=32000, type=int)
+    country = request.args.get('country', default="", type=str)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_abs_values(days, cases, country, force_reload)
     header = "Total Confirmed Cases (" + dat_start + ' - ' + dat_end + ').'
-    context = ["confirmed", header, days, cases, "cases", country, __version__]
+    context = ["confirmed", header, days, cases, "cases", country, __version__, strftime('%a %H:%M', localtime(coviddata_confirmed.last_update_time))]
     return render_template('lcd.html', title='confirmed', absval=absval, relval=relval, context=context)
 
 @app.route("/confirmed_dif/")
 def confirmed_dif():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=2000, type=int)
+    cases = request.args.get('cases', default=32000, type=int)
     country = request.args.get('country', default="", type=str)
-    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_dif_values(days, cases, country)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_dif_values(days, cases, country, force_reload)
     header = "Daily New Cases (" + dat_start + ' - ' + dat_end + ').'
-    context = ["confirmed_dif", header, days, cases, "cases", country, __version__]
+    context = ["confirmed_dif", header, days, cases, "cases", country, __version__, strftime('%a %H:%M', localtime(coviddata_confirmed.last_update_time))]
     return render_template('lcd.html', title='confirmed (differential)', absval=absval, relval=relval, context=context)
 
 @app.route("/deaths/")
 def deaths():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=100, type=int)
+    cases = request.args.get('cases', default=1000, type=int)
     country = request.args.get('country', default="", type=str)
-    absval, relval, dat_start, dat_end = coviddata_deaths.compute_abs_values(days, cases, country)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_deaths.compute_abs_values(days, cases, country, force_reload)
     header = "Total Deaths (" + dat_start + ' - ' + dat_end + ').'
-    context = ["deaths", header, days, cases, "deaths", country, __version__] 
+    context = ["deaths", header, days, cases, "deaths", country, __version__, strftime('%a %H:%M', localtime(coviddata_deaths.last_update_time))]
     return render_template('lcd.html', title='deaths', absval=absval, relval=relval, context=context)
 
 @app.route("/deaths_dif/")
 def deaths_dif():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=100, type=int)
+    cases = request.args.get('cases', default=1000, type=int)
     country = request.args.get('country', default="", type=str)
-    absval, relval, dat_start, dat_end = coviddata_deaths.compute_dif_values(days, cases, country)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_deaths.compute_dif_values(days, cases, country, force_reload)
     header = "Daily New Deaths (" + dat_start + ' - ' + dat_end + ').'
-    context = ["deaths_dif", header, days, cases, "deaths", country, __version__]
+    context = ["deaths_dif", header, days, cases, "deaths", country, __version__, strftime('%a %H:%M', localtime(coviddata_deaths.last_update_time))]
     return render_template('lcd.html', title='deaths (differential)', absval=absval, relval=relval, context=context)
 
 @app.route("/recovered/")
 def recovered():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=100, type=int)
+    cases = request.args.get('cases', default=1000, type=int)
     country = request.args.get('country', default="", type=str)
-    absval, relval, dat_start, dat_end = coviddata_recovered.compute_abs_values(days, cases, country)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_recovered.compute_abs_values(days, cases, country, force_reload)
     header = "Total Recovered (" + dat_start + ' - ' + dat_end + ').'
-    context = ["recovered", header, days, cases, "recovered", country, __version__] 
+    context = ["recovered", header, days, cases, "recovered", country, __version__, strftime('%a %H:%M', localtime(coviddata_recovered.last_update_time))]
     return render_template('lcd.html', title='recovered', absval=absval, relval=relval, context=context)
 
 @app.route("/recovered_dif/")
 def recovered_dif():
     days = request.args.get('days', default=7, type=int)
-    cases = request.args.get('cases', default=100, type=int)
+    cases = request.args.get('cases', default=1000, type=int)
     country = request.args.get('country', default="", type=str)
-    absval, relval, dat_start, dat_end = coviddata_recovered.compute_dif_values(days, cases, country)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_recovered.compute_dif_values(days, cases, country, force_reload)
     header = "Daily New Recovered (" + dat_start + ' - ' + dat_end + ').'
-    context = ["recovered_dif", header, days, cases, "recovered", country, __version__]
+    context = ["recovered_dif", header, days, cases, "recovered", country, __version__, strftime('%a %H:%M', localtime(coviddata_recovered.last_update_time))]
     return render_template('lcd.html', title='recovered (differential)', absval=absval, relval=relval, context=context)
 
 @app.route("/av_growth_rate/")
 def average_percentage_increase():
     days = request.args.get('days', default=7, type=int)
     cases = request.args.get('cases', default=1000, type=int)
-    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_agr_values(cases)
+    force_reload = True if request.args.get('force', default="", type=str) == 'yes' else False
+    absval, relval, dat_start, dat_end = coviddata_confirmed.compute_agr_values(cases, force_reload)
     header = ""
-    context = ["av_growth_rate", header, days, cases, "", "", __version__]
+    context = ["av_growth_rate", header, days, cases, "", "", __version__, strftime('%a %H:%M', localtime(coviddata_confirmed.last_update_time))]
     return render_template('lcd.html', title='Average growth rate in the last seven days', absval=absval, relval=relval, context=context)
 
 if __name__ == '__main__':
